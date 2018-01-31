@@ -1,8 +1,0 @@
-Lattice Size (NxN),Total Steps,Steps Used in Analysis,Burnin Steps,Interaction Strength,Applied Mag Field,Spin Prop
-20,100000,50000,0,1.0,0.0,0.1
-
-Temperature,Magnetization Mean,Magnetization Std Dev,Energy Mean,Energy Std Dev
-2.0,0.9102689,0.0460881350544,-1.7411906,0.0884528149447
-2.1,0.8625517,0.0660879590176,-1.6443038,0.105853820458
-2.3,0.3859256,0.544267936098,-1.3671056,0.157687064938
-2.2,0.7776171,0.143634505909,-1.5275864,0.141636501422
