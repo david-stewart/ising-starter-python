@@ -104,6 +104,20 @@ There are three important python files in this simulation: `main.py`, `ising.py`
 
 `ising.py` calculates the Ising model at a certain temperature
 
+## Multi-processing
+
+If you feel adventurous and want to use multiprocessing (running the simulation on multiple cores), we got you covered! Use the `main-multiprocessing.py` file to get started. This is identical to the `main.py` file, except there is an additional option for indicating how many processes you want to run.
+
+For example, if you want to run your code on four processes (good place to start since most CPUs have four cores), use the following command:
+
+```
+python main-multiprocessing.py --processes=4
+```
+
+There isn't a clean way to add progress bars to this, so instead, the program will output the temperatures it is currently computing, as well as the temperatures it is finished with.
+
+**NOTE:** Because of the asynchronous conditions of this program, it may not write your data to the CSV file in the right order. Make sure you sort by temperature before analyzing the data.
+
 ## To-Dos
 
 * Add Windows Powershell instructions
