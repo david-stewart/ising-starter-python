@@ -8,6 +8,7 @@ import logging
 import matplotlib.pyplot as plt
 from tqdm import tqdm #fancy progress bar generator
 from ising import run_ising #import run_ising function from ising.py
+import multiprocessing as mp
 
 def calculate_and_save_values(Msamp,Esamp,spin,num_analysis,index,temp,data_filename,corr_filename):
     try:
@@ -19,7 +20,7 @@ def calculate_and_save_values(Msamp,Esamp,spin,num_analysis,index,temp,data_file
         data_array = [np.abs(M_mean),M_std,E_mean,E_std]
 
         #write data to CSV file
-        header_array = ['Temperature','Magnetizatio n Mean','Magnetization Std Dev','Energy Mean','Energy Std Dev']
+        header_array = ['Temperature','Magnetization Mean','Magnetization Std Dev','Energy Mean','Energy Std Dev']
         append_data_to_file(data_filename, header_array) if index == 0 else None
         append_data_to_file(data_filename, data_array, temp)
 
@@ -53,79 +54,50 @@ def calculate_and_save_values(Msamp,Esamp,spin,num_analysis,index,temp,data_file
 @click.option('--flip_prop', default=0.1, help='Proportion of Spins to Consider Flipping per Step',type=float)
 
 @click.option('--output', default='data', help='Directory Name for Data Output',type=str)
-@click.option('--plots', default=True, help='Turn Automatic Plot Creation Off or On',type=bool)
 
-def run_simulation(t_min,t_max,t_step,n,num_steps,num_analysis,num_burnin,j,b,flip_prop,output,plots):
+@click.option('--processes', default=1, help='',type=int)
 
-    check_step_values(num_steps, num_analysis, num_burnin)
+def ising(t_min,t_max,t_step,n,num_steps,num_analysis,num_burnin,j,b,flip_prop,output,processes):
 
-    T = get_temp_array(t_min, t_max, t_step)
-
-    data_filename, corr_filename = get_filenames(output)
-
-    write_sim_parameters(data_filename,corr_filename,n,num_steps,num_analysis,num_burnin,j,b,flip_prop)
-
-    if plots:
-        #initialize vars for plotting values
-        temp_arr, M_mean_arr, E_mean_arr, M_std_arr, E_std_arr = [],[],[],[],[]
-
-    print('\nSimulation Started! Data will be written to ' + data_filename + '\n')
-
-    temp_range = tqdm(T) #set fancy progress bar range
-    for index, temp in enumerate(temp_range):
-
-        #show current temperature
-        temp_range.set_description("Simulation Progress");
-
-        try:
-            #run the Ising model
-            Msamp, Esamp, spin = run_ising(n,temp,num_steps,num_burnin,flip_prop,j,b)
-            #get and save statistical values
-            if calculate_and_save_values(Msamp,Esamp,spin,num_analysis,index,temp,data_filename,corr_filename):
-
-                if plots:
-                    #for plotting
-                    M_mean, E_mean, M_std, E_std = get_plot_values(temp,Msamp,Esamp,num_analysis)
-                    temp_arr.append(temp)
-                    M_mean_arr.append(M_mean)
-                    E_mean_arr.append(E_mean)
-                    M_std_arr.append(M_std)
-                    E_std_arr.append(E_std)
-
-        except KeyboardInterrupt:
-            print("\n\nProgram Terminated. Good Bye!")
-            sys.exit()
-
-        except:
-            logging.error("Temp="+str(temp)+": Simulation Failed. No Data Written")
-
+    data_filename, corr_filename = initialize_simulation(n,num_steps,num_analysis,num_burnin,output,j,b,flip_prop)
+    run_processes(processes,t_min,t_max,t_step,n,num_steps,num_burnin,num_analysis,flip_prop,j,b,data_filename,corr_filename)
     print('\n\nSimulation Finished! Data written to '+ data_filename)
 
-    if plots:
-        plot_graphs(temp_arr, M_mean_arr, E_mean_arr, M_std_arr, E_std_arr)
+def initialize_simulation(n,num_steps,num_analysis,num_burnin,output,j,b,flip_prop):
+    check_step_values(num_steps, num_analysis, num_burnin)
+    data_filename, corr_filename = get_filenames(output)
+    write_sim_parameters(data_filename,corr_filename,n,num_steps,num_analysis,num_burnin,j,b,flip_prop)
+    print('\nSimulation Started! Data will be written to ' + data_filename + '\n')
+    return data_filename, corr_filename
 
-def get_plot_values(temp,Msamp,Esamp,num_analysis): #only for plotting at end
+def run_processes(processes,t_min,t_max,t_step,n,num_steps,num_burnin,num_analysis,flip_prop,j,b,data_filename,corr_filename):
+
+    T = get_temp_array(t_min, t_max, t_step)
+    pool = mp.Pool(processes=processes)
+    [pool.apply_async(run_simulation, args=(index,temp,n,num_steps,num_burnin,num_analysis,flip_prop,j,b,data_filename,corr_filename,),callback = print_result) for index,temp in enumerate(T)]
+    pool.close()
+    pool.join()
+
+def print_result(temp):
+    print("Temp {0} Done".format(temp))
+
+def run_simulation(index,temp,n,num_steps,num_burnin,num_analysis,flip_prop,j,b,data_filename,corr_filename):
+    temp = round(temp,2)
+    print("Wprking on Temp: {0}".format(temp))
     try:
-        M_mean = np.average(Msamp[-num_analysis:])
-        E_mean = np.average(Esamp[-num_analysis:])
-        M_std = np.std(Msamp[-num_analysis:])
-        E_std = np.std(Esamp[-num_analysis:])
-        return M_mean, E_mean, M_std, E_std
-    except:
-        logging.error("Temp={0}: Error getting plot values".format(temp))
-        return False
+        #run the Ising model
+        Msamp, Esamp, spin = run_ising(n,temp,num_steps,num_burnin,flip_prop,j,b,disable_tqdm=True)
 
-def plot_graphs(temp_arr,M_mean_arr,M_std_arr,E_mean_arr,E_std_arr): #plot graphs at end
-    plt.figure(1)
-    plt.ylim(0,1)
-    plt.errorbar(temp_arr, np.absolute(M_mean_arr), yerr=M_std_arr, uplims=True, lolims=True,fmt='o')
-    plt.xlabel('Temperature')
-    plt.ylabel('Magnetization')
-    plt.figure(2)
-    plt.errorbar(temp_arr, E_mean_arr, yerr=E_std_arr, fmt='o')
-    plt.xlabel('Temperature')
-    plt.ylabel('Energy')
-    plt.show()
+        #get and save statistical values
+        if calculate_and_save_values(Msamp,Esamp,spin,num_analysis,index,temp,data_filename,corr_filename):
+            return temp
+
+    except KeyboardInterrupt:
+        print("\n\nProgram Terminated. Good Bye!")
+        sys.exit()
+
+    except:
+        logging.error("Temp="+str(temp)+": Simulation Failed. No Data Written")
 
 def check_step_values(num_steps,num_analysis,num_burnin): #simulation size checks and exceptions
     if (num_burnin > num_steps):
@@ -207,4 +179,4 @@ def append_data_to_file(filename,data_array,temp=False):
 
 if __name__ == "__main__":
     print("\n2D Ising Model Simulation\n")
-    run_simulation()
+    ising()
