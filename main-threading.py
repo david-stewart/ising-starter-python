@@ -83,7 +83,7 @@ def print_result(temp):
 
 def run_simulation(index,temp,n,num_steps,num_burnin,num_analysis,flip_prop,j,b,data_filename,corr_filename):
     temp = round(temp,2)
-    print("Wprking on Temp: {0}".format(temp))
+    print("Wprking on Temp {0}".format(temp))
     try:
         #run the Ising model
         Msamp, Esamp, spin = run_ising(n,temp,num_steps,num_burnin,flip_prop,j,b,disable_tqdm=True)
