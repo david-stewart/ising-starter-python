@@ -65,7 +65,7 @@ def run_ising(N,T,num_steps,num_burnin,flip_prop,J,B,disable_tqdm=False):
         Msamp.append(M)
 
         #Divide by two because of double counting
-        E = float(-J*(np.sum((spin*neighbors)))/2.0 - float(B_step)*M)/float(N**2)
+        E = float(-J*(np.sum((spin*neighbors)))/2.0)/float(N**2) - float(B_step)*M
         Esamp.append(E)
 
         #Calculate the change in energy of flipping a spin
