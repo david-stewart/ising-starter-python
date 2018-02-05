@@ -82,7 +82,7 @@ def print_result(temp):
     print("Temp {0} Done".format(temp))
 
 def run_simulation(index,temp,n,num_steps,num_burnin,num_analysis,flip_prop,j,b,data_filename,corr_filename):
-    temp = round(temp,2)
+    temp = round(temp,5)
     print("Wprking on Temp {0}".format(temp))
     try:
         #run the Ising model
