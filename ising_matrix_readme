@@ -1,0 +1,38 @@
+
+This version of the code uses a compiled C library that python calls to do 
+the main math. It is a little more work, but runs faster (~6 times for a 50x50 matrix)
+
+The process is this:
+    1. write the C-library. This is done in ising_matrix.c
+    2. compile the C-library. On OSX, this can be done with the following command:
+        clang -shared -Wl,-install_name,ising_matrix.so -o ising_matrix.so -fPIC ising_matrix.c
+    3. insert the ctypes module into main.py
+        " from ctypes import * "
+    4. using the C-library.
+        1. load the library with a command like:
+        " c_matrix = CDLL('./ising_matrix.so') "
+        2. feed in "ctypes" into the C-library function calls, i.e. c_library.function_call( c_int(10), c_float(...))...
+        3. python expects c-library function calls to return c_int's by default. If they don't, be sure to tell python
+           with c_library.function.restype = <c_type>
+        4. the way that the C-library is coded here, it requires that the function ".allocate(c_int(N))" is called first,
+           otherwise it will seg fault when pretty much any other function is called.
+    5. notes on the c-library coded here:
+        1. There are two arrays. The array for the spins is just an array of booleans. This is True (or 1) for
+           spins aligned with B, and False (or 0) for spins not aligned with B.
+        2. The other array is pairs, which is a short int. It counts how many neighbors to each site are anti-aligned.
+           e.g., a site with spin up adjacent to three sites that where spin down (and the last adjacent site, of course
+           being up) would have a value of 3.
+        3. The use of booleans for the spin matrix allows for a small memory footprint and use of bitwise operators
+           to check spin alignment. This did, however, require that the forms used to calculate E, M, and deltaE
+           to look different. However, the calculated values for E and M are identical to those if -1 and 1 were used instead of 
+           the booleans.
+
+    6.  Finally, the default random number generator from the C library is not
+        ideal. There are better, and faster, RNG's. An obvious improvement would be
+        to add a Marsenne Twister RNG into the code instead of using the
+        rand()/MAX_RANDOM. The one from
+        http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/TINYMT/index.html works
+        well. There is no reason, besides time spent, that it is not already
+        implemented.
+
+For an brief introduction on using ctypes, see <<http://book.pythontips.com/en/latest/python_c_extension.html>>

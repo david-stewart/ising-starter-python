@@ -8,8 +8,10 @@ import logging
 import matplotlib.pyplot as plt
 from tqdm import tqdm #fancy progress bar generator
 from ising import run_ising #import run_ising function from ising.py
+from ctypes import *
 
-def calculate_and_save_values(Msamp,Esamp,spin,num_analysis,index,temp,data_filename,corr_filename):
+
+def calculate_and_save_values(c_matrix,Msamp,Esamp,num_analysis,index,temp,data_filename,corr_filename):
     try:
         #calculate statistical values
         M_mean = np.average(Msamp[-num_analysis:])
@@ -24,6 +26,11 @@ def calculate_and_save_values(Msamp,Esamp,spin,num_analysis,index,temp,data_file
         append_data_to_file(data_filename, data_array, temp)
 
         #get correlation function
+        N = int(c_matrix.get_N());
+        spin = np.ones([N,N]);
+        for i in range(0,N):
+            for j in range(0,N):
+                spin[i,j] = int(c_matrix.get_spin(c_int(i), c_int(j)));
         corr = compute_autocorrelation(spin)
 
         #write correlation function to CSV file
@@ -56,6 +63,17 @@ def calculate_and_save_values(Msamp,Esamp,spin,num_analysis,index,temp,data_file
 @click.option('--plots', default=True, help='Turn Automatic Plot Creation Off or On',type=bool)
 
 def run_simulation(t_min,t_max,t_step,n,num_steps,num_analysis,num_burnin,j,b,flip_prop,output,plots):
+    start_time = time.time()
+    c_matrix = CDLL('./ising_matrix.so')
+    c_matrix.get_E.restype = c_float
+    c_matrix.get_M.restype = c_float
+    c_matrix.get_spin.restype = c_int
+    c_matrix.get_N.restype = c_int
+    c_matrix.allocate(c_int(n))
+    # c_matrix.print_spins()
+    
+    # setup the C module for the matrix
+    # ising_matrix = CDLL('./ising_matrix.so')
 
     check_step_values(num_steps, num_analysis, num_burnin)
 
@@ -79,9 +97,13 @@ def run_simulation(t_min,t_max,t_step,n,num_steps,num_analysis,num_burnin,j,b,fl
 
         try:
             #run the Ising model
-            Msamp, Esamp, spin = run_ising(n,temp,num_steps,num_burnin,flip_prop,j,b)
+            Msamp, Esamp = run_ising(c_matrix, n,temp,num_steps,num_burnin,flip_prop,j,b)
+            # print("Msamp, Esamp\n")
+            # print(Msamp)
+            # print(Esamp)
+            # exit()
             #get and save statistical values
-            if calculate_and_save_values(Msamp,Esamp,spin,num_analysis,index,temp,data_filename,corr_filename):
+            if calculate_and_save_values(c_matrix,Msamp,Esamp,num_analysis,index,temp,data_filename,corr_filename):
 
                 if plots:
                     #for plotting
@@ -99,10 +121,14 @@ def run_simulation(t_min,t_max,t_step,n,num_steps,num_analysis,num_burnin,j,b,fl
         except:
             logging.error("Temp="+str(temp)+": Simulation Failed. No Data Written")
 
+    run_time = time.time() - start_time;
     print('\n\nSimulation Finished! Data written to '+ data_filename)
+    print("Run time: %f\n"%run_time)
 
     if plots:
         plot_graphs(temp_arr, M_mean_arr, E_mean_arr, M_std_arr, E_std_arr)
+
+    c_matrix.free_mem()
 
 def get_plot_values(temp,Msamp,Esamp,num_analysis): #only for plotting at end
     try:

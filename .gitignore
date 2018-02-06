@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 *.csv#
 .ipynb_checkpoints/
+*.so
+data/*
+.DS_Store/*

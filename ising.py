@@ -2,14 +2,17 @@ import random
 import numpy as np
 from scipy import signal
 from annealing import B_anneal, T_anneal
+from ctypes import *
 
 try:
     __IPYTHON__
 except:
     from tqdm import tqdm
 
-def run_ising(N,T,num_steps,num_burnin,flip_prop,J,B,disable_tqdm=False):
-
+def run_ising(c_matrix, N,T,num_steps,num_burnin,flip_prop,J,B,disable_tqdm=False):
+    # c_matrix.print_spins()
+    c_matrix.set_flip_prop(c_float(flip_prop))
+    c_matrix.set_J(c_float(J))
     # Description of parameters:
     # N = Grid Size
     # T = Temperature (normalized to k_B = 1)
@@ -21,17 +24,10 @@ def run_ising(N,T,num_steps,num_burnin,flip_prop,J,B,disable_tqdm=False):
     # B = Applied magnetic field
     # flip_prop = Total ratio of spins to possibly flip per step
 
-    # Initialize variables
-    M,E = 0,0 # Magnetization and Energy Initial Values
     Msamp, Esamp = [],[] #Arrays to hold magnetization and energy values
 
     # We obtain the sum of nearest neighbors by convoluting
     #   this matrix with the spin matrix
-    conv_mat = np.matrix('0 1 0; 1 0 1; 0 1 0')
-
-    # Generate a random initial configuration
-    spin = np.random.choice([-1,1],(N,N))
-
     try:
         __IPYTHON__
         steps = range(num_steps)
@@ -57,28 +53,9 @@ def run_ising(N,T,num_steps,num_burnin,flip_prop,J,B,disable_tqdm=False):
         T_step = T_anneal(T, step, num_steps, num_burnin)
         B_step = B_anneal(B, step, num_steps, num_burnin)
 
-        #Calculating the total spin of neighbouring cells
-        neighbors = signal.convolve2d(spin,conv_mat,mode='same',boundary='wrap')
+        c_matrix.step(c_float(T_step), c_float(B_step))
+        # c_matrix.print_E()
+        Msamp.append(float(c_matrix.get_M()))
+        Esamp.append(float(c_matrix.get_E()))
 
-        #Sum up our variables of interest, normalize by N^2
-        M = float(np.sum(spin))/float(N**2)
-        Msamp.append(M)
-
-        #Divide by two because of double counting
-        E = float(-J*(np.sum((spin*neighbors)))/2.0)/float(N**2) - float(B_step)*M
-        Esamp.append(E)
-
-        #Calculate the change in energy of flipping a spin
-        DeltaE = 2.0 * (J*(spin*neighbors) + float(B_step)*spin)
-
-        #Calculate the transition
-        p_trans = np.where(DeltaE >= 0.0, np.exp(-1.0*DeltaE/float(T_step)),1.0)
-        #If DeltaE is positive, calculate the Boltzman flipping probability.
-        #If not, assign a transition probability of 1
-
-        #Decide which transitions will occur
-        transitions = [[-1 if (cell>random.random() and flip_prop>random.random()) else 1 for cell in row] for row in p_trans]
-        #Perform the transitions
-        spin = spin*transitions
-
-    return Msamp, Esamp, spin
+    return Msamp, Esamp
