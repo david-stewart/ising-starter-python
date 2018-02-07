@@ -13,6 +13,7 @@ def run_ising(c_matrix, N,T,num_steps,num_burnin,flip_prop,J,B,disable_tqdm=Fals
     # c_matrix.print_spins()
     c_matrix.set_flip_prop(c_float(flip_prop))
     c_matrix.set_J(c_float(J))
+    c_matrix.rand_spins()
     # Description of parameters:
     # N = Grid Size
     # T = Temperature (normalized to k_B = 1)
