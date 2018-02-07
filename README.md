@@ -1,6 +1,54 @@
-# 2D Ising Model in Python
+# 2D Ising Model in Python w/ a C-Library for Matrix Logic
 
 Written by Surya Dutta '18 | Original Matlab code written by Jed Thompson '17
+
+Modified to use a C-Library for Matrix Logic by David Stewart
+
+## Regarding the C-Library:
+A small c-library `ising_matrix.c` has been written which implements the 2D ising
+model for each step.
+
+In order to build the library on your machine, use the following command (if you use
+OSX): 
+
+* `clang -shared -Wl,-install_name,ising_matrix.so -o ising_matrix.so -fPIC ising_matrix.c`
+
+If you use Linux:
+
+* `gcc -shared -Wl,-soname,ising_matrix -o ising_matrix.so -fPIC ising_matrix.c`
+
+(For windows... to be updated...)
+
+Once the c-library compiled it is a "shared object" `.so` which python can now call, using
+the `ctypes` modules.
+
+The `main.py` and `ising.py` modules have been updated accordingly. The `annealing.py` code
+is unaffected.
+
+A few notes:
+
+* Passing any parameters to the C-library will required passing C-language types. 
+For example, when calling the function `allocate(int)` in the C-library,
+python must pass a C-language int to the function call. Assuming that python
+has named the library `c_matrix`, the call int python(with python int `n`) would be:
+
+    `c_matrix.allocate(c_int(n))`
+
+* Python assumes that the return values from calls to the shared
+C-library will be integers and will error if they are not.
+Therefore the Python code must be told expressly what
+the return type is for each C-library function used.
+For example, the C-library function with signature `float get_E()`
+returns a C-language float. Therefore, before using this function in the Python
+code, the following line must first be used:
+
+    `c_matrix.get_E.restype = c_float`
+
+When python gets a C-language float, it can convert then to a 
+Python float object with the `float()` function. Therefore, to get the
+value of `E` from the C-library into Python:
+
+    `E = float(c_matrix.get_E())`
 
 ## New Features
 * Command line interface to input simulation parameters
