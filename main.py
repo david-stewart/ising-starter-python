@@ -70,10 +70,6 @@ def run_simulation(t_min,t_max,t_step,n,num_steps,num_analysis,num_burnin,j,b,fl
     c_matrix.get_spin.restype = c_int
     c_matrix.get_N.restype = c_int
     c_matrix.allocate(c_int(n))
-    # c_matrix.print_spins()
-    
-    # setup the C module for the matrix
-    # ising_matrix = CDLL('./ising_matrix.so')
 
     check_step_values(num_steps, num_analysis, num_burnin)
 
