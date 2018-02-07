@@ -6,7 +6,12 @@ Modified to use a C-Library for Matrix Logic by David Stewart
 
 ## Regarding the C-Library:
 A small c-library `ising_matrix.c` has been written which implements the 2D ising
-model for each step.
+model for each step. In informal testing, the code execution time is decreased by about a factor of 
+6-10 for a 50x50 grid and more than a factor of 14 for a 200x200 grid.
+
+This optimization is possible by compiling the C-library and then letting Python make
+function calls to this library to run the ising model and retrieve results. The Ising module
+used is the same as that used previously, and all of your own programming can/should still take place in Python.
 
 In order to build the library on your machine, use the following command (if you use
 OSX): 
@@ -19,18 +24,25 @@ If you use Linux:
 
 (For windows... to be updated...)
 
-Once the c-library compiled it is a "shared object" `.so` which python can now call, using
+Once the c-library compiled it is a "shared object" `.so` which python can now call using
 the `ctypes` modules.
 
 The `main.py` and `ising.py` modules have been updated accordingly. The `annealing.py` code
 is unaffected.
 
-A few notes:
+### A Few Notes on Extending Python with C
+
+Some explanation on how to use this C-library extension with to Python are given here. For more information on extending Python with C, see http://book.pythontips.com/en/latest/python_c_extension.html.
+
+* Python assigns the shared library to a Python object. In the examples below, it is assumed
+that this object was named `c_matrix` with the call:
+
+     `c_matrix = CDLL('./ising_matrix.so')`
 
 * Passing any parameters to the C-library will required passing C-language types. 
 For example, when calling the function `allocate(int)` in the C-library,
-python must pass a C-language int to the function call. Assuming that python
-has named the library `c_matrix`, the call int python(with python int `n`) would be:
+python must pass a C-language int to the function call. Using the 
+C-library Python object above, the call in python(with python int `n`) would be:
 
     `c_matrix.allocate(c_int(n))`
 
