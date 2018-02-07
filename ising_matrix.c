@@ -17,6 +17,8 @@ static float J = 1.0; // pair interactions strength
 static float flip_prop = 0.1; // percent of sites allowed to flip
 static float E;
 static float M;
+static int   HALF_RAND_MAX;
+static int   FLIP_PROP_RAND_MAX;
 
 // function signatures
 int   allocate (int matrix_size);
@@ -40,7 +42,11 @@ int get_spin(int i, int j){
 int free_mem() { free(spin); free(pairs); return 0; }
 float get_E() { return E; }
 float get_M() { return M; }
-int   set_flip_prop(float flip_prop_in){ flip_prop = flip_prop_in;  return 0; }
+int   set_flip_prop(float flip_prop_in){ 
+    flip_prop = flip_prop_in;  return 0; 
+    FLIP_PROP_RAND_MAX = (int)(flip_prop * RAND_MAX);
+}
+
 int   set_J(float J_in) { J = J_in; return 0; }
 int   print_spins() {
     for (int i = 0; i < N; ++i){
@@ -54,24 +60,22 @@ int get_N(){ return N; }
 
 int allocate(int matrix_size){
     srand(time(NULL));
+    HALF_RAND_MAX = RAND_MAX / 2;
+    FLIP_PROP_RAND_MAX = (int)(flip_prop * RAND_MAX);
     N = matrix_size;
     NN = matrix_size * matrix_size;
     spin  = malloc( NN * sizeof(bool) );
     pairs = malloc( NN * sizeof(short) );
     
     // initialize spin matrix
-    for (int i = 0; i < NN; ++i) {
-        spin[i] = (float)rand()/(float)RAND_MAX > 0.5;
-    }
+    for (int i = 0; i < NN; ++i) { spin[i] = rand() > HALF_RAND_MAX; }
 
     return 0;
 }
 
 
 int rand_spins(){
-    for (int i = 0; i < NN; ++i) {
-        spin[i] = (float)rand()/(float)RAND_MAX > 0.5;
-    }
+    for (int i = 0; i < NN; ++i) { spin[i] = rand() > HALF_RAND_MAX; }
     return 0;
 }
 
@@ -161,7 +165,8 @@ float step(float T, float B){
 
     // now allow sites to fip
     for (int i = 0; i < NN; ++i){
-        if ((float)rand()/(float)RAND_MAX > flip_prop) continue;
+        /* if ((float)rand()/(float)RAND_MAX > flip_prop) continue; */
+        if (rand() > FLIP_PROP_RAND_MAX) continue;
         float DeltaE = 2.0*(J*(4.0 - 2.0*pairs[i]) + B*(2.0*spin[i]-1.0));
         if ( DeltaE < 0.0 || exp(-1.0*DeltaE/T) > (float)rand()/(float)RAND_MAX ) spin[i] = !spin[i];
     }
