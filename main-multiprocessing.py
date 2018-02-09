@@ -6,37 +6,44 @@ import click
 import numpy as np
 import logging
 import matplotlib.pyplot as plt
-from tqdm import tqdm #fancy progress bar generator
 from ising import run_ising #import run_ising function from ising.py
 import multiprocessing as mp
 
-def calculate_and_save_values(Msamp,Esamp,spin,num_analysis,index,temp,data_filename,corr_filename):
+def run_simulation(index,temp,n,num_steps,num_burnin,num_analysis,flip_prop,j,b,data_filename,corr_filename,data_listener,corr_listener):
+    temp = round(temp,2)
+    print("Working on Temp {0}".format(temp))
     try:
-        #calculate statistical values
-        M_mean = np.average(Msamp[-num_analysis:])
-        E_mean = np.average(Esamp[-num_analysis:])
-        M_std = np.std(Msamp[-num_analysis:])
-        E_std = np.std(Esamp[-num_analysis:])
-        data_array = [np.abs(M_mean),M_std,E_mean,E_std]
+        #run the Ising model
+        Msamp, Esamp, spin = run_ising(n,temp,num_steps,num_burnin,flip_prop,j,b,disable_tqdm=True)
 
-        #write data to CSV file
-        header_array = ['Temperature','Magnetization Mean','Magnetization Std Dev','Energy Mean','Energy Std Dev']
-        append_data_to_file(data_filename, header_array) if index == 0 else None
-        append_data_to_file(data_filename, data_array, temp)
+        try:
+            #calculate statistical values
+            M_mean = np.average(Msamp[-num_analysis:])
+            E_mean = np.average(Esamp[-num_analysis:])
+            M_std = np.std(Msamp[-num_analysis:])
+            E_std = np.std(Esamp[-num_analysis:])
 
-        #get correlation function
-        corr = compute_autocorrelation(spin)
+            data_array = [np.abs(M_mean),M_std,E_mean,E_std]
+            data_listener.put([temp]+data_array)
 
-        #write correlation function to CSV file
-        header_array = ['Temperature','K','Spatial Spin Correlation']
-        append_data_to_file(corr_filename, header_array) if index == 0 else None
-        [append_data_to_file(corr_filename, corr_value, temp) for corr_value in corr]
+            corr = compute_autocorrelation(spin)
+            [corr_listener.put([temp]+corr_value) for corr_value in corr]
 
-        return True
+            print("Done with Temp {0}".format(temp))
+            return True
+
+        except:
+            logging.error("Temp="+str(temp)+": Statistical Calculation Failed. No Data Written.")
+            return False
+
+    except KeyboardInterrupt:
+        print("\n\nProgram Terminated. Good Bye!")
+        data_listener.put('kill')
+        corr_listener.put('kill')
+        sys.exit()
 
     except:
-        logging.error("Temp="+str(temp)+": Statistical Calculation Failed. No Data Written.")
-        return False
+        logging.error("Temp="+str(temp)+": Simulation Failed. No Data Written")
 
 #simulation options (enter python main.py --help for details)
 @click.command()
@@ -57,8 +64,7 @@ def calculate_and_save_values(Msamp,Esamp,spin,num_analysis,index,temp,data_file
 
 @click.option('--processes', default=1, help='',type=int)
 
-def ising(t_min,t_max,t_step,n,num_steps,num_analysis,num_burnin,j,b,flip_prop,output,processes):
-
+def main(t_min,t_max,t_step,n,num_steps,num_analysis,num_burnin,j,b,flip_prop,output,processes):
     data_filename, corr_filename = initialize_simulation(n,num_steps,num_analysis,num_burnin,output,j,b,flip_prop)
     run_processes(processes,t_min,t_max,t_step,n,num_steps,num_burnin,num_analysis,flip_prop,j,b,data_filename,corr_filename)
     print('\n\nSimulation Finished! Data written to '+ data_filename)
@@ -69,35 +75,6 @@ def initialize_simulation(n,num_steps,num_analysis,num_burnin,output,j,b,flip_pr
     write_sim_parameters(data_filename,corr_filename,n,num_steps,num_analysis,num_burnin,j,b,flip_prop)
     print('\nSimulation Started! Data will be written to ' + data_filename + '\n')
     return data_filename, corr_filename
-
-def run_processes(processes,t_min,t_max,t_step,n,num_steps,num_burnin,num_analysis,flip_prop,j,b,data_filename,corr_filename):
-
-    T = get_temp_array(t_min, t_max, t_step)
-    pool = mp.Pool(processes=processes)
-    [pool.apply_async(run_simulation, args=(index,temp,n,num_steps,num_burnin,num_analysis,flip_prop,j,b,data_filename,corr_filename,),callback = print_result) for index,temp in enumerate(T)]
-    pool.close()
-    pool.join()
-
-def print_result(temp):
-    print("Temp {0} Done".format(temp))
-
-def run_simulation(index,temp,n,num_steps,num_burnin,num_analysis,flip_prop,j,b,data_filename,corr_filename):
-    temp = round(temp,2)
-    print("Wprking on Temp {0}".format(temp))
-    try:
-        #run the Ising model
-        Msamp, Esamp, spin = run_ising(n,temp,num_steps,num_burnin,flip_prop,j,b,disable_tqdm=True)
-
-        #get and save statistical values
-        if calculate_and_save_values(Msamp,Esamp,spin,num_analysis,index,temp,data_filename,corr_filename):
-            return temp
-
-    except KeyboardInterrupt:
-        print("\n\nProgram Terminated. Good Bye!")
-        sys.exit()
-
-    except:
-        logging.error("Temp="+str(temp)+": Simulation Failed. No Data Written")
 
 def check_step_values(num_steps,num_analysis,num_burnin): #simulation size checks and exceptions
     if (num_burnin > num_steps):
@@ -120,6 +97,17 @@ def get_filenames(dirname): #make data folder if doesn't exist, then specify fil
         raise ValueError('Directory name not valid. Exiting simulation.')
         sys.exit()
 
+def get_temp_array(t_min,t_max,t_step):
+    if (t_min > t_max):
+        raise ValueError('T_min cannot be greater than T_max. Exiting Simulation')
+        sys.exit()
+    try:
+        T = np.arange(t_min,t_max,t_step).tolist()
+        return T
+    except:
+        raise ValueError('Error creating temperature array. Exiting simulation.')
+        sys.exit()
+
 def write_sim_parameters(data_filename,corr_filename,n,num_steps,num_analysis,num_burnin,j,b,flip_prop):
     try:
         with open(data_filename,'w') as csv_file:
@@ -138,17 +126,6 @@ def write_sim_parameters(data_filename,corr_filename,n,num_steps,num_analysis,nu
         logging.error('Could not save simulation parameters. Exiting simulation')
         sys.exit()
 
-def get_temp_array(t_min,t_max,t_step):
-    if (t_min > t_max):
-        raise ValueError('T_min cannot be greater than T_max. Exiting Simulation')
-        sys.exit()
-    try:
-        T = np.arange(t_min,t_max,t_step).tolist()
-        return T
-    except:
-        raise ValueError('Error creating temperature array. Exiting simulation.')
-        sys.exit()
-
 def compute_autocorrelation(spin):
     n = len(spin)
     corr_array = []
@@ -165,18 +142,42 @@ def compute_autocorrelation(spin):
         corr_array.append([k,corr])
     return corr_array
 
-def append_data_to_file(filename,data_array,temp=False):
-    try:
-        with open(filename,'a') as csv_file: #appends to existing CSV File
-            writer = csv.writer(csv_file, delimiter=',', lineterminator='\n')
-            if temp:
-                writer.writerow([temp]+data_array)
-            else:
-                writer.writerow(data_array)
+def listener(q, fn):
+    '''listens for messages on the q, writes to file. '''
+    f = open(fn, 'a') 
+    writer = csv.writer(f, delimiter=',', lineterminator='\n')
+    while 1:
+        m = q.get()
+        if m == 'kill':
+            break
+        writer.writerow(m)
+        f.flush()
+    f.close()
 
-    except:
-        logging.error("Temp={0}: Error Writing to File".format(temp))
+def run_processes(processes,t_min,t_max,t_step,n,num_steps,num_burnin,num_analysis,flip_prop,j,b,data_filename,corr_filename):
+    
+    T = get_temp_array(t_min, t_max, t_step)
+    
+    #must use Manager queue here, or will not work
+    manager = mp.Manager()
+    data_listener = manager.Queue()
+    corr_listener = manager.Queue()    
+    pool = mp.Pool(mp.cpu_count() + 2)
+
+    #put listener to work first
+    data_watcher = pool.apply_async(listener, args=(data_listener, data_filename,))
+    corr_watcher = pool.apply_async(listener, args=(corr_listener, corr_filename,))
+
+    #fire off workers 
+    jobs = [pool.apply_async(run_simulation, args=(index,temp,n,num_steps,num_burnin,num_analysis,flip_prop,j,b,data_filename,corr_filename,data_listener,corr_listener,)) for index,temp in enumerate(T)]
+
+    # collect results from the workers through the pool result queue   
+    [job.get() for job in jobs]
+
+    #now we are done, kill the listener
+    data_listener.put('kill')
+    corr_listener.put('kill')
+    pool.close()
 
 if __name__ == "__main__":
-    print("\n2D Ising Model Simulation\n")
-    ising()
+   main()
