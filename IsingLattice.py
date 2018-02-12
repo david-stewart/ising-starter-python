@@ -16,7 +16,7 @@ libc.auto_correlation.restype = c_float
 
 class IsingLattice(object):
     def __init__(self, N, flip_prop):
-        n_flip = N*flip_prop
+        n_flip = N*N*flip_prop
         self.N = N
         if n_flip != int(n_flip):
             n_flip = int(n_flip) + 1
