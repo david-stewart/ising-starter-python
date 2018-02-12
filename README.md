@@ -1,129 +1,54 @@
-# 2D Ising Model in Python
+# ising-starter-python-with-c
+This repository is a fork of ising-starter-python with a C++/C library used for ising lattice simulation.
 
-Written by Surya Dutta '18 | Original Matlab code written by Jed Thompson '17
+## Differences from ising-start-python
+There are two new files:
+- `ising_lattice_lib.cxx`: This is a library written in C++ and C
+- `IsingLattice.py`: This defines the Python class `IsingLattice` that is basically wrapper to use the `ising_lattice_lib` library
 
-## New Features
-* Command line interface to input simulation parameters
-* Better interpretability with pythonic features (e.g. list comprehension)
-* Modular codebase for easy changes and experimentation
-* Fancy progress bars with time estimations
-* Complete error handling with progress save
-* ...and more coming!
+The files `main_c.py`, `ising_c.py`, and `main-multiprocessing_c.py` are minimally modified from the files `main.py`, `ising.py`, and `main-multiprocessing.py` in the ising-starter-python respository in order to use the C++ library.
 
+## Why use this?
+Speed: The C++/C library implements (with one exception, see below) the same algorithm for the lattice simulation as in the pure python code. The code base is much more verbose, but it is also faster (in informal testing somewhere from 7 to more than 20 times as fast, depending on the lattice size of the simulation).
 
-## Getting Started
+## Why not use this?
+1. In order to use this you have to compile the `ising_lattice_lib.cxx` file into a shared library.
+2. The code works by generating `IsingLattice` python objects which make calls to the C++ library. Exception handling between the library and Python is not coded. If something fails the resulting Python message probably won't be very informative. (Don't be too scared by this, the C++ library has been tested, and shouldn't fail...)
+3. You must remember to release the memory conumed by each instance of IsingLattice that you generate in Python, otherwise you will have a memory leak.
+4. The results of `main-multiprocessing_c.py` are suspiciously fast. (This is not meant facetiously, it is *much* faster than anticipated). While brief debugging hasn't uncovered any errors, and it does appear to generate full results, take it with a grain of salt, or better yet, email either a bug report or a justification for its performance.
 
-### GUI-based approach (Windows/Mac/Linux)
+## How to use this?
+1. Compile ising_lattice_lib.cxx into a shared library. On OSX the command is: `gcc -O3 -shared -o ising_lattice_lib.so ising_lattice_lib.cxx`. 
+2. Use the python object `IsingLattice`, which is basically a wrapper for calls to the shared library. This is already done in `main_c.py`, `ising_c.py` and `main-multiprocessing_c.py`. (See #4 above under "Why not use this?" for a disclainer on use of the `main-multiprocessing_c.py`)
 
-If you prefer to use GUIs as opposed to the command line, this section is for you!
+Generally, use the library though the `IsingLattice` class in Python. For example:
+  `lattice = IsingLattice(<N>,<flip_prop>)` will generate a class instance `lattice`. This actually talks to the C-library which then generates a pointer to a C++ class which generates the Ising Lattice. C++ was used because it has better support for a thread safe random number generator. C was used because it works with the Python module ctypes.
+  
+  Various member functions of `IsingLattice` call C++ to perform operations and return results. Python has a garbage collector that deletes objects as soon as there are no longer any pointers to them. However, it will note automatically call the C++ library to delete an object to which it is making calls. Therefore, when you are done with any instance of `IsingLattice`, call the `.free_memory()` function. (Obviously, this is the *last* call to be made any given instance of `IsingLattice`).
+  
+  ## Some useful function calls to IsingMatrix
+  
+  - `__init__(self, N, flip_prop)`: initializes the ising lattice object in C++
+  - `free_memory(self)`: frees the memory in the C++ library. If this isn't called, then when the `IsingLattice` python object is destroyed, the object in the C++ library no longer is pointed to by anything and becomes leaked memry.
+  - `step(self, T, B)`: run on step of the ising simulation
+  - `nsteps(self, T, B, n)`: run n-steps of the ising simulation
+  - `get_E(self)`: return the energy per lattice site value for the current lattice configuation
+  - `get_M(self)`: return the magnetization for the current lattice configuration
+  - `set_flip_prop`(self, flip_prop): reset the flip_prop. Useful during a simulated annealing process.
+  - `calc_auto_correlation(self)`: returns a Python list of the autocorrelation for the current lattice configuration.
+  - `randomize_spins(self)`: re-start the lattice to a randomized spin state.
+  
+  It is likely that those are the only functions which will be used. For convenience,
+  there are the following (and a few more besides, see `IsingLattice.py` for full details.
+  - `print_spings(self)`: print out a matrix of 0's and 1's for the lattice site (1's are aligned with the magnetic field and 0's anti-aligned), example:  
+     `1 0 0 0 0`  
+     `0 0 1 0 1`  
+     `1 0 0 0 0`    
+     `1 1 0 0 1`      
+     `0 1 0 1 1`  
+ - `print_aligned(self)`: print out a matrix of how many parallel aligned neighbors each lattice site has (+1 for aligned, -1 for anti-alligned). (Looks like above, but with -4, -2, 0, 2, and 4 entries).
+ - `get_numpy_spin_matrix()`: returns a numpy matrix of the spins (like the one above, but with -1s and 1s, instead of 1's and 0's.
+ 
+## Difference in algorithms
 
-#### Managing your Git Repository (optional, but recommended)
-
-If you would like to use Git Version Control in your team to collaborate on and keep backups of your code, great! If not, no worries - just download the files here and follow the instructions below. Version control is always highly recommended.
-
-There are plenty of great GUIs for Git. My personal favorite is [Github Desktop](https://desktop.github.com/).
-
-If you are new to Git and want to learn more about version control, visit [this website](https://programminghistorian.org/lessons/getting-started-with-github-desktop) for a great primer on version control, Git, and Github Desktop.
-
-The first step is to make a Github account and fork this repository (click on `Fork` in the top right). This will create a copy of this code onto your own account. Now you can follow the instructions for your respective GUI to clone this repository (download the files locally), and start working with the simulation!
-
-#### Installing and using Python
-
-If you don't have Python installed yet, I would highly recommend using the **Anaconda distribution** to install Python 3. You can find the installation instructions [here](https://docs.anaconda.com/anaconda/install/)
-
-Once this is installed on your computer, you will have Python 3 ready to go, as well as important packages like NumPy and SciPy. You can view these packages and install new ones using the [Anaconda Navigator](https://docs.anaconda.com/anaconda/navigator/) (need to install this separately).
-
-In order to edit and run your code, I would recommend [Spyder (Scientific PYthon Development EnviRonment)](https://pythonhosted.org/spyder/) (I know, horrible acronym, but the IDE makes up for it). It should be really easy to edit your code and run it through this environment. **NOTE**: The IPython shell in Spyder does not support nested progress bars, so you will only see one when you run the simulation. In order to see both, you will need to change your run configuration to run in a normal Python shell.
-
-Another optional but cool program you can use is [Jupyter Notebook](http://jupyter.org/) (comes pre-installed with Anaconda). These notebooks support Python code, as well as Markdown and LaTeX, so you can keep all of your code organized and easily testable (hint: use for easier data analysis!). You should be able to open this through Anaconda Navigator.
-
-These are just recommendations - there are plenty of other GUI-based applications for Python development out there (like Enthought Canopy). If you have time, do some playing around and see what you like!
-
-### Command line (Mac/Linux)
-
-1. Fork this repository to your own account
-
-2. Navigate to the folder you would like to use, then use:
-  ```bash
-  git clone git@github.com:{{your-github-username}}/ising-starter-python ising && cd ising
-  ```
-
-3. If you are using conda (recommended), use this to install required packages:
-  ```bash
-  conda install --yes --file requirements.txt
-  ```
-
-  If you have a standalone version of Python 3 installed and are using pip, use this instead (you may need to be a superuser to install Pip packages):
- ```bash
-  pip install -r requirements.txt
-  ```
-
-4. The code should be ready to run! Use this to run the simulation, and it should save the results automatically to an auto-generated data folder:
-  ```bash
-  python main.py
-  ```
-
-5. If you want to change other parameters of the simulation, you can use:
-
-  ```
-  python main.py --help
-
-  2D Ising Model Simulation
-  Usage: main.py [OPTIONS]
-
-  Options:
-    --t_min FLOAT           Minimum Temperature (inclusive)
-    --t_max FLOAT           Maximum Temperature (inclusive)
-    --t_step FLOAT          Temperature Step Size
-    --n INTEGER             Lattice Size (NxN)
-    --num_steps INTEGER     Total Number of Steps
-    --num_analysis INTEGER  Number of Steps used in Analysis
-    --num_burnin INTEGER    Total Number of Burnin Steps
-    --j FLOAT               Interaction Strength
-    --b FLOAT               Applied Magnetic Field
-    --flip_prop FLOAT       Proportion of Spins to Consider Flipping per Step
-    --help                  Show this message and exit.
-  ```
-
-  This will list all of the parameters you can change. For example, if you run `python main.py --b=0.5 --flip_prop=0.2`, the simulation will add a magnetic field of 0.5T and increase the flip proportion to 0.2. You can also edit the default parameters directly in the `main.py` file.
-
-
-### Powershell (Windows)
-
-Coming Soon!
-
-## Understanding the Simulation
-
-There are three important python files in this simulation: `main.py`, `ising.py`, and `annealing.py`
-
-`main.py` is the file you have to run for the simulation. The code in this file takes in the input parameters, runs the Ising model for each temperature step, gets the relevant data, saves it, and gives you a set of nice plots at the end. This is a lot, so we've broken this down into different functions to make it easier to understand/change. Here are the two most important ones:
-
-* `run_simulation`: takes in all the input variables and runs the simulation.
-
-* `calculate_and_save_values`: takes in the energy, magnetization, and spin values from the Ising code, calculates the appropriate statistical values, and saves them to a CSV file. **This is where you should implement code to calculate the other values you are interested in**.
-
-`ising.py` calculates the Ising model at a certain temperature
-
-## Multi-processing
-
-If you feel adventurous and want to use multiprocessing (running the simulation on multiple cores), we got you covered! Use the `main-multiprocessing.py` file to get started. This is identical to the `main.py` file, except there is an additional option for indicating how many processes you want to run.
-
-For example, if you want to run your code on four processes (good place to start since most CPUs have four cores), use the following command:
-
-```
-python main-multiprocessing.py --processes=4
-```
-
-There isn't a clean way to add progress bars to this, so instead, the program will output the temperatures it is currently computing, as well as the temperatures it is finished with.
-
-**NOTE:** Because of the asynchronous conditions of this program, it may not write your data to the CSV file in the right order. Make sure you sort by temperature before analyzing the data.
-
-## To-Dos
-
-* Add Windows Powershell instructions
-* Add more info on Simulation structure
-* Optimize (make code faster)
-
-## Acknowledgements
-
-Coming Soon!
+The one place where the algorithm has changed is that currently in the pure python implementation the flip proportion probability is applied to all lattice sites. I.e. if flip prop = 10%, then in each step all lattice sites have a 10% change of being chosen for the possibliity to flip. Therefore in each step there is a binomial distrubtion centered around (flip_prop * n) for the number of lattice sites that could flip. In the C++ library, exactly (flip_prop * n) random lattice sites are selected to possibly flip in each step. The change is for performance reasons (many less calls to the RNG) and do not change the resulting validity of the model.

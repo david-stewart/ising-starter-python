@@ -6,16 +6,17 @@ import click
 import numpy as np
 import logging
 import matplotlib.pyplot as plt
-from ising import run_ising #import run_ising function from ising.py
+from ising_c import run_ising #import run_ising function from ising.py
 import multiprocessing as mp
+from IsingLattice import IsingLattice
 
 def run_simulation(index,temp,n,num_steps,num_burnin,num_analysis,flip_prop,j,b,data_filename,corr_filename,data_listener,corr_listener):
     temp = round(temp,2)
     print("Working on Temp {0}".format(temp))
     try:
         #run the Ising model
-        Msamp, Esamp, spin = run_ising(n,temp,num_steps,num_burnin,flip_prop,j,b,disable_tqdm=True)
-
+        lattice = IsingLattice(n, flip_prop)
+        Msamp, Esamp = run_ising(lattice,temp,num_steps,num_burnin,j,b,disable_tqdm=True)
         try:
             #calculate statistical values
             M_mean = np.average(Msamp[-num_analysis:])
@@ -26,7 +27,8 @@ def run_simulation(index,temp,n,num_steps,num_burnin,num_analysis,flip_prop,j,b,
             data_array = [np.abs(M_mean),M_std,E_mean,E_std]
             data_listener.put([temp]+data_array)
 
-            corr = compute_autocorrelation(spin)
+            corr = lattice.calc_auto_correlation()
+            lattice.free_memory()
             [corr_listener.put([temp]+corr_value) for corr_value in corr]
 
             print("Done with Temp {0}".format(temp))

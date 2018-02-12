@@ -6,10 +6,11 @@ import click
 import numpy as np
 import logging
 import matplotlib.pyplot as plt
+from IsingLattice import IsingLattice
 from tqdm import tqdm #fancy progress bar generator
-from ising import run_ising #import run_ising function from ising.py
+from ising_c import run_ising #import run_ising function from ising.py
 
-def calculate_and_save_values(Msamp,Esamp,spin,num_analysis,index,temp,data_filename,corr_filename):
+def calculate_and_save_values(lattice, Msamp,Esamp,num_analysis,index,temp,data_filename,corr_filename):
     try:
         #calculate statistical values
         M_mean = np.average(Msamp[-num_analysis:])
@@ -24,7 +25,8 @@ def calculate_and_save_values(Msamp,Esamp,spin,num_analysis,index,temp,data_file
         append_data_to_file(data_filename, data_array, temp)
 
         #get correlation function
-        corr = compute_autocorrelation(spin)
+        # corr = compute_autocorrelation(spin)
+        corr = lattice.calc_auto_correlation()
 
         #write correlation function to CSV file
         header_array = ['Temperature','K','Spatial Spin Correlation']
@@ -57,7 +59,12 @@ def calculate_and_save_values(Msamp,Esamp,spin,num_analysis,index,temp,data_file
 
 def run_simulation(t_min,t_max,t_step,n,num_steps,num_analysis,num_burnin,j,b,flip_prop,output,plots):
 
+    time_start = time.time()
+
     check_step_values(num_steps, num_analysis, num_burnin)
+
+    lattice = IsingLattice(n, flip_prop)
+    # lattice.print_spins()
 
     T = get_temp_array(t_min, t_max, t_step)
 
@@ -79,10 +86,9 @@ def run_simulation(t_min,t_max,t_step,n,num_steps,num_analysis,num_burnin,j,b,fl
 
         try:
             #run the Ising model
-            Msamp, Esamp, spin = run_ising(n,temp,num_steps,num_burnin,flip_prop,j,b)
+            Msamp, Esamp = run_ising(lattice, temp,num_steps,num_burnin,j,b)
             #get and save statistical values
-            if calculate_and_save_values(Msamp,Esamp,spin,num_analysis,index,temp,data_filename,corr_filename):
-
+            if calculate_and_save_values(lattice, Msamp,Esamp,num_analysis,index,temp,data_filename,corr_filename):
                 if plots:
                     #for plotting
                     M_mean, E_mean, M_std, E_std = get_plot_values(temp,Msamp,Esamp,num_analysis)
@@ -99,8 +105,11 @@ def run_simulation(t_min,t_max,t_step,n,num_steps,num_analysis,num_burnin,j,b,fl
         except:
             logging.error("Temp="+str(temp)+": Simulation Failed. No Data Written")
 
+
+    print('\n ------ Time start(%f) Time finished(%f), total time(%f)'%(time_start, time.time(), time.time()-time_start))
     print('\n\nSimulation Finished! Data written to '+ data_filename)
 
+    lattice.free_memory()
     if plots:
         plot_graphs(temp_arr, M_mean_arr, E_mean_arr, M_std_arr, E_std_arr)
 
@@ -177,21 +186,21 @@ def get_temp_array(t_min,t_max,t_step):
         raise ValueError('Error creating temperature array. Exiting simulation.')
         sys.exit()
 
-def compute_autocorrelation(spin):
-    n = len(spin)
-    corr_array = []
-    for k in range(1,int(n/2)):
-        col_mean, row_mean = spin.mean(axis=0),spin.mean(axis=1)
-        #compute r values for rows and cols
-        r_col = [np.multiply(spin[j,:]-col_mean,spin[(j+k)%n,:]-col_mean) for j in range(1,n)]
-        r_row = [np.multiply(spin[:,j]-row_mean,spin[:,(j+k)%n]-row_mean) for j in range(1,n)]
-        #normalize r values
-        r_col = np.divide(r_col,float(n))
-        r_row = np.divide(r_row,float(n))
-        #calculate corr for k and add it to array
-        corr = (r_col.mean() + r_row.mean())/2.0
-        corr_array.append([k,corr])
-    return corr_array
+#def compute_autocorrelation(spin):
+#    n = len(spin)
+#    corr_array = []
+#    for k in range(1,int(n/2)):
+#        col_mean, row_mean = spin.mean(axis=0),spin.mean(axis=1)
+#        #compute r values for rows and cols
+#        r_col = [np.multiply(spin[j,:]-col_mean,spin[(j+k)%n,:]-col_mean) for j in range(1,n)]
+#        r_row = [np.multiply(spin[:,j]-row_mean,spin[:,(j+k)%n]-row_mean) for j in range(1,n)]
+#        #normalize r values
+#        r_col = np.divide(r_col,float(n))
+#        r_row = np.divide(r_row,float(n))
+#        #calculate corr for k and add it to array
+#        corr = (r_col.mean() + r_row.mean())/2.0
+#        corr_array.append([k,corr])
+#    return corr_array
 
 def append_data_to_file(filename,data_array,temp=False):
     try:
