@@ -11,12 +11,13 @@ import multiprocessing as mp
 from IsingLattice import IsingLattice
 
 def run_simulation(index,temp,n,num_steps,num_burnin,num_analysis,flip_prop,j,b,data_filename,corr_filename,data_listener,corr_listener):
-    temp = round(temp,2)
-    print("Working on Temp {0}".format(temp))
+    print("Working on Temp {0}".format(round(temp,4)))
     try:
         #run the Ising model
         lattice = IsingLattice(n, flip_prop)
+        time_start = time.time()
         Msamp, Esamp = run_ising(lattice,temp,num_steps,num_burnin,j,b,disable_tqdm=True)
+
         try:
             #calculate statistical values
             M_mean = np.average(Msamp[-num_analysis:])
@@ -31,7 +32,7 @@ def run_simulation(index,temp,n,num_steps,num_burnin,num_analysis,flip_prop,j,b,
             lattice.free_memory()
             [corr_listener.put([temp]+corr_value) for corr_value in corr]
 
-            print("Done with Temp {0}".format(temp))
+            print("Done with Temp {0} in {1} seconds".format(round(temp,4), round(time.time()-time_start,2)))
             return True
 
         except:
@@ -56,7 +57,7 @@ def run_simulation(index,temp,n,num_steps,num_burnin,num_analysis,flip_prop,j,b,
 @click.option('--n', prompt='Lattice Size', help='Lattice Size (NxN)',type=int)
 @click.option('--num_steps', default=100000, help='Total Number of Steps',type=int)
 @click.option('--num_analysis', default=50000, help='Number of Steps used in Analysis',type=int)
-@click.option('--num_burnin', default=0, help='Total Number of Burnin Steps',type=int)
+@click.option('--num_burnin', default=25000, help='Total Number of Burnin Steps',type=int)
 
 @click.option('--j', default=1.0, help='Interaction Strength',type=float)
 @click.option('--b', default=0.0, help='Applied Magnetic Field',type=float)
@@ -67,9 +68,11 @@ def run_simulation(index,temp,n,num_steps,num_burnin,num_analysis,flip_prop,j,b,
 @click.option('--processes', default=1, help='',type=int)
 
 def main(t_min,t_max,t_step,n,num_steps,num_analysis,num_burnin,j,b,flip_prop,output,processes):
+    simulation_start_time = time.time()
     data_filename, corr_filename = initialize_simulation(n,num_steps,num_analysis,num_burnin,output,j,b,flip_prop)
     run_processes(processes,t_min,t_max,t_step,n,num_steps,num_burnin,num_analysis,flip_prop,j,b,data_filename,corr_filename)
-    print('\n\nSimulation Finished! Data written to '+ data_filename)
+    simulation_duration = round((time.time() - simulation_start_time)/60.0,2)
+    print('\n\nSimulation finished in {0} minutes. Data written to {1}.'.format(simulation_duration,data_filename))
 
 def initialize_simulation(n,num_steps,num_analysis,num_burnin,output,j,b,flip_prop):
     check_step_values(num_steps, num_analysis, num_burnin)
@@ -81,11 +84,9 @@ def initialize_simulation(n,num_steps,num_analysis,num_burnin,output,j,b,flip_pr
 def check_step_values(num_steps,num_analysis,num_burnin): #simulation size checks and exceptions
     if (num_burnin > num_steps):
         raise ValueError('num_burning cannot be greater than available num_steps. Exiting simulation.')
-        sys.exit()
 
     if (num_analysis > num_steps - num_burnin):
         raise ValueError('num_analysis cannot be greater than available num_steps after burnin. Exiting simulation.')
-        sys.exit()
 
 def get_filenames(dirname): #make data folder if doesn't exist, then specify filename
     try:

@@ -1,6 +1,5 @@
 import random
 import numpy as np
-from scipy import signal
 from annealing import B_anneal, T_anneal
 
 try:
@@ -25,13 +24,6 @@ def run_ising(lattice, T,num_steps,num_burnin,J,B,disable_tqdm=False):
     M,E = 0,0 # Magnetization and Energy Initial Values
     Msamp, Esamp = [],[] #Arrays to hold magnetization and energy values
     lattice.randomize_spins()
-
-    # We obtain the sum of nearest neighbors by convoluting
-    #   this matrix with the spin matrix
-    # conv_mat = np.matrix('0 1 0; 1 0 1; 0 1 0')
-
-    # Generate a random initial configuration
-    # spin = np.random.choice([-1,1],(N,N))
 
     try:
         __IPYTHON__
@@ -58,11 +50,9 @@ def run_ising(lattice, T,num_steps,num_burnin,J,B,disable_tqdm=False):
         T_step = T_anneal(T, step, num_steps, num_burnin)
         B_step = B_anneal(B, step, num_steps, num_burnin)
 
-        # print("T and B ",T_step," ",B_step)
-        lattice.nsteps(T_step, B_step, 5)
+        lattice.step(T_step, B_step)
 
         Msamp.append( lattice.get_M() )
         Esamp.append( lattice.get_E() )
 
-    # print ("Msamp ", Msamp)
     return Msamp, Esamp

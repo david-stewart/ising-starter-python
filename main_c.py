@@ -11,6 +11,7 @@ from tqdm import tqdm #fancy progress bar generator
 from ising_c import run_ising #import run_ising function from ising.py
 
 def calculate_and_save_values(lattice, Msamp,Esamp,num_analysis,index,temp,data_filename,corr_filename):
+
     try:
         #calculate statistical values
         M_mean = np.average(Msamp[-num_analysis:])
@@ -18,7 +19,7 @@ def calculate_and_save_values(lattice, Msamp,Esamp,num_analysis,index,temp,data_
         M_std = np.std(Msamp[-num_analysis:])
         E_std = np.std(Esamp[-num_analysis:])
         data_array = [np.abs(M_mean),M_std,E_mean,E_std]
-
+    
         #write data to CSV file
         header_array = ['Temperature','Magnetizatio n Mean','Magnetization Std Dev','Energy Mean','Energy Std Dev']
         append_data_to_file(data_filename, header_array) if index == 0 else None
@@ -48,7 +49,7 @@ def calculate_and_save_values(lattice, Msamp,Esamp,num_analysis,index,temp,data_
 @click.option('--n', prompt='Lattice Size', help='Lattice Size (NxN)',type=int)
 @click.option('--num_steps', default=100000, help='Total Number of Steps',type=int)
 @click.option('--num_analysis', default=50000, help='Number of Steps used in Analysis',type=int)
-@click.option('--num_burnin', default=0, help='Total Number of Burnin Steps',type=int)
+@click.option('--num_burnin', default=25000, help='Total Number of Burnin Steps',type=int)
 
 @click.option('--j', default=1.0, help='Interaction Strength',type=float)
 @click.option('--b', default=0.0, help='Applied Magnetic Field',type=float)
@@ -185,22 +186,6 @@ def get_temp_array(t_min,t_max,t_step):
     except:
         raise ValueError('Error creating temperature array. Exiting simulation.')
         sys.exit()
-
-#def compute_autocorrelation(spin):
-#    n = len(spin)
-#    corr_array = []
-#    for k in range(1,int(n/2)):
-#        col_mean, row_mean = spin.mean(axis=0),spin.mean(axis=1)
-#        #compute r values for rows and cols
-#        r_col = [np.multiply(spin[j,:]-col_mean,spin[(j+k)%n,:]-col_mean) for j in range(1,n)]
-#        r_row = [np.multiply(spin[:,j]-row_mean,spin[:,(j+k)%n]-row_mean) for j in range(1,n)]
-#        #normalize r values
-#        r_col = np.divide(r_col,float(n))
-#        r_row = np.divide(r_row,float(n))
-#        #calculate corr for k and add it to array
-#        corr = (r_col.mean() + r_row.mean())/2.0
-#        corr_array.append([k,corr])
-#    return corr_array
 
 def append_data_to_file(filename,data_array,temp=False):
     try:
