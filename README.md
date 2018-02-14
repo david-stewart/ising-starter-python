@@ -15,10 +15,9 @@ Speed: The C++/C library implements (with one exception, see below) the same alg
 1. In order to use this you have to compile the `ising_lattice_lib.cxx` file into a shared library.
 2. The code works by generating `IsingLattice` python objects which make calls to the C++ library. Exception handling between the library and Python is not coded. If something fails the resulting Python message probably won't be very informative. (Don't be too scared by this, the C++ library has been tested, and shouldn't fail...)
 3. You must remember to release the memory conumed by each instance of IsingLattice that you generate in Python, otherwise you will have a memory leak.
-4. The results of `main-multiprocessing_c.py` are suspiciously fast. (This is not meant facetiously, it is *much* faster than anticipated). While brief debugging hasn't uncovered any errors, and it does appear to generate full results, take it with a grain of salt, or better yet, email either a bug report or a justification for its performance.
 
 ## How to use this?
-1. Compile ising_lattice_lib.cxx into a shared library. On OSX the command is: `gcc -O3 -shared -o ising_lattice_lib.so ising_lattice_lib.cxx`. 
+1. Compile ising_lattice_lib.cxx into a shared library. On OSX the command is: `g++ --std=c++11 -shared -o ising_lattice_lib.so ising_lattice_lib.cxx`. 
 2. Use the python object `IsingLattice`, which is basically a wrapper for calls to the shared library. This is already done in `main_c.py`, `ising_c.py` and `main-multiprocessing_c.py`. (See #4 above under "Why not use this?" for a disclainer on use of the `main-multiprocessing_c.py`)
 
 Generally, use the library though the `IsingLattice` class in Python. For example:
